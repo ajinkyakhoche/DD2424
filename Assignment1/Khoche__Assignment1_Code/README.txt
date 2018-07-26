@@ -1,0 +1,3 @@
+-Assignment1 contains code for assignment1 in python
+-Assignment1.py outputs a .txt file 'Wstar.txt'
+-visualizeWeights1.m function reads 'Wstar.txt' and visualizes weight in a montage 
