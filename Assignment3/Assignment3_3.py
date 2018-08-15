@@ -15,7 +15,7 @@ from scipy.spatial import distance
 from sklearn import preprocessing
 import copy
 import os
-
+import pickle
 
 class kLayerNN(object):
     def __init__(self, filePath, GradCheckParams, GradDescentParams, NNParams):
@@ -61,7 +61,6 @@ class kLayerNN(object):
         Input: file name
         Output: data in form of dictionary
         '''
-        import pickle
         with open(file, 'rb') as fo:
             dict = pickle.load(fo, encoding='bytes')
         return dict
@@ -161,7 +160,7 @@ class kLayerNN(object):
             # DIAG OF THIS IS SQUARE MATRIX!!!
             var.append(np.sum(((s[i+1]-mu[i+1])**2), 1)/N)
             sHat.append(self.BatchNormalize(s[i+1], mu[i+1], var[i+1]))
-            h.append(np.maximum(0, sHat[i+1]))
+            h.append(np.maximum(0, s[i+1]))     ###CHANGE TO sHat
 
         # for final layer:
         s.append(np.dot(Wt[self.nLayers],
@@ -265,19 +264,22 @@ class kLayerNN(object):
             np.dot(g.T, h[self.nLayers-1].T))/N + 2 * self.lmbda * Wt[self.nLayers]
         # Propogate gradient vector gi to previous layer:
         g = np.dot(g, Wt[self.nLayers])
-        sTemp = np.where(sHat[self.nLayers-1] > 0, 1, 0)
+        ### CHANGE s to sHat
+        sTemp = np.where(s[self.nLayers-1] > 0, 1, 0)
         g = np.multiply(g, np.reshape(np.diag(sTemp), (-1, 1)))
 
         for i in range(self.nLayers-1, 0, -1):
-            g = self.BatchNormBackPass(g, s[i], mu[i], var[i])
+            ### UNCOMMENT THIS LINE LATER
+            #g = self.BatchNormBackPass(g, s[i], mu[i], var[i])
             grad_b[i] = np.sum(g.T, 1)/N
             grad_b[i] = np.reshape(grad_b[i], (-1, 1))
             grad_W[i] = (np.dot(g.T, h[i-1].T))/N + 2 * self.lmbda * Wt[i]
             # Propagate gradient vector to previous layer (if i > 1):
             if i > 1:
                 g = np.dot(g, Wt[i])
-                sTemp = np.where(sHat[i-1] > 0, 1, 0)
-                g = np.multiply(g, np.diag(sTemp))
+                ### CHANGE s to sHat
+                sTemp = np.where(s[i-1] > 0, 1, 0)
+                g = np.multiply(g, np.reshape(np.diag(sTemp), (-1,1)))
 
         return grad_W, grad_b
 
@@ -290,7 +292,7 @@ class kLayerNN(object):
         numgrad_b.append(np.zeros((list(self.m)[0], 1)))
 
         for i in range(self.nLayers - 2):
-            numgrad_W.append(np.zeros((list(self.m)[i], list(self.m)[i+1])))
+            numgrad_W.append(np.zeros((list(self.m)[i+1], list(self.m)[i])))
             numgrad_b.append(np.zeros((list(self.m)[i+1], 1)))
 
         numgrad_W.append(np.zeros((self.k, list(self.m)[-1])))
@@ -469,7 +471,8 @@ def main():
     '''
     #filePath = 'C:/Users/Ajinkya/Documents/Python Scripts/Deep Learing in Data Science/'
     #filePath = os.getcwd() + '\\Deep Learning in Data Science'
-    filePath = 'C:/Users/Ajinkya/Dropbox/Python Scripts/Deep Learing in Data Science'
+    #filePath = 'C:/Users/Ajinkya/Dropbox/Python Scripts/Deep Learing in Data Science'
+    filePath = os.getcwd()
     '''
     h:      Step Size
     eps:    epsilon for placing in denominator of relative gradient checking
@@ -496,7 +499,9 @@ def main():
     m:      List of sizes of intermediate layers.
     nLayers:No. of Layers
     '''
-    NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list({50, 30})}
+    hiddenLayerSizeList = [50,30,30,20]
+    
+    NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList)}
 
     ''' Initialize object '''
     obj = kLayerNN(filePath, GradCheckParams, GradDescentParams, NNParams)
@@ -504,12 +509,12 @@ def main():
     ''' 
     Checking Gradients by comparing analytic to numerical gradient
     '''
-    X_DIM = 1000  # can change this to 100, 1000 or obj.d (= 3072) etc
+    X_DIM = 100  # can change this to 100, 1000 or obj.d (= 3072) etc
     Temp_Wt = []
     Temp_Wt.append([])
     Temp_Wt.append(obj.W[1][:, 0:X_DIM])
     for i in range(len(obj.m) - 1):
-        Temp_Wt.append(obj.W[i+1])
+        Temp_Wt.append(obj.W[i+2])
     Temp_Wt.append(obj.W[-1])
     obj.CheckGradients(
         obj.Xtrain[0:X_DIM, 0:7], obj.Ytrain[0:X_DIM, 0:7], Temp_Wt, obj.b, 'slow')
