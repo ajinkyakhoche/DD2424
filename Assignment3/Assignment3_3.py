@@ -266,7 +266,11 @@ class kLayerNN(object):
         g = np.dot(g, Wt[self.nLayers])
         ### CHANGE s to sHat
         sTemp = np.where(s[self.nLayers-1] > 0, 1, 0)
-        g = np.multiply(g, np.reshape(np.diag(sTemp), (-1, 1)))
+        
+        if g.shape[0] < self.m[self.nLayers-2]: 
+            g = np.multiply(g, np.reshape(np.diag(sTemp), (-1, 1)))
+        else:
+            g = np.multiply(g, np.diag(sTemp))
 
         for i in range(self.nLayers-1, 0, -1):
             ### UNCOMMENT THIS LINE LATER
@@ -279,7 +283,11 @@ class kLayerNN(object):
                 g = np.dot(g, Wt[i])
                 ### CHANGE s to sHat
                 sTemp = np.where(s[i-1] > 0, 1, 0)
-                g = np.multiply(g, np.reshape(np.diag(sTemp), (-1,1)))
+                
+                if g.shape[0] < self.m[i-2]:
+                    g = np.multiply(g, np.reshape(np.diag(sTemp), (-1,1)))
+                else:
+                    g = np.multiply(g, np.diag(sTemp))
 
         return grad_W, grad_b
 
@@ -360,12 +368,8 @@ class kLayerNN(object):
         bstar = bias
 
         # Initialize Momentum Vectors
-        v_b = []
-        v_b.append(np.zeros(bias[1].shape))
-        v_b.append(np.zeros(bias[2].shape))
-        v_W = []
-        v_W.append(np.zeros(Wt[1].shape))
-        v_W.append(np.zeros(Wt[2].shape))
+        v_b = [np.zeros_like(a) for a in bstar]
+        v_W = [np.zeros_like(a) for a in Wstar]
 
         JtrainList = np.zeros(self.nEpoch)
         JvalList = np.zeros(self.nEpoch)
@@ -383,17 +387,17 @@ class kLayerNN(object):
                 [grad_W, grad_b] = self.ComputeGradients(
                     Xbatch, Ybatch, Wstar, bstar)
 
-                for k in range(len(grad_W)):
+                for k in range(len(grad_W)-1):
                     # Momentum Update:
-                    v_b[k] = self.rho * v_b[k] + self.eta * grad_b[k]
-                    v_W[k] = self.rho * v_W[k] + self.eta * grad_W[k]
+                    v_b[k+1] = self.rho * v_b[k+1] + self.eta * grad_b[k+1]
+                    v_W[k+1] = self.rho * v_W[k+1] + self.eta * grad_W[k+1]
                     # Weight/bias update:
                     # HOW IT WAS BEFORE MOMENTUM--
                     # Wstar[k] = Wstar[k] - GDparams.eta * grad_W[k]
                     # bstar[k] = bstar[k] - GDparams.eta * grad_b[k]
                     # HOW IT IS WITH MOMENTUM--
-                    Wstar[k] = Wstar[k] - v_W[k]
-                    bstar[k] = bstar[k] - v_b[k]
+                    Wstar[k+1] = Wstar[k+1] - v_W[k+1]
+                    bstar[k+1] = bstar[k+1] - v_b[k+1]
 
             Jtrain = self.ComputeCost2(Xtrain, Ytrain, Wstar, bstar)
             Jval = self.ComputeCost2(Xval, Yval, Wstar, bstar)
@@ -490,16 +494,15 @@ def main():
     epsilon:small number used for division in Batch Normalization function
     '''
     GradDescentParams = {'sigma': 0.001, 'eta': 0.01,
-                         'lmbda': 0.0, 'rho': 0.9, 'nEpoch': 50, 'nBatch': 100, 'epsilon': 1e-11}
+                         'lmbda': 0.0, 'rho': 0.9, 'nEpoch': 10, 'nBatch': 100, 'epsilon': 1e-11}
 
     '''
     d:      Input image size 32x32x3
     k:      Output size (=no. of classes)
     n:      Number of input images
     m:      List of sizes of intermediate layers.
-    nLayers:No. of Layers
     '''
-    hiddenLayerSizeList = [50,30,30,20]
+    hiddenLayerSizeList = [50]
     
     NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList)}
 
@@ -508,16 +511,18 @@ def main():
 
     ''' 
     Checking Gradients by comparing analytic to numerical gradient
+    Change X_DIM and no. of images for training to reduce computations
     '''
-    X_DIM = 100  # can change this to 100, 1000 or obj.d (= 3072) etc
-    Temp_Wt = []
-    Temp_Wt.append([])
-    Temp_Wt.append(obj.W[1][:, 0:X_DIM])
-    for i in range(len(obj.m) - 1):
-        Temp_Wt.append(obj.W[i+2])
-    Temp_Wt.append(obj.W[-1])
-    obj.CheckGradients(
-        obj.Xtrain[0:X_DIM, 0:7], obj.Ytrain[0:X_DIM, 0:7], Temp_Wt, obj.b, 'slow')
+    # X_DIM = 300  # can change this to 100, 1000 or obj.d (= 3072) etc
+    # Y_DIM = 100
+    # Temp_Wt = []
+    # Temp_Wt.append([])
+    # Temp_Wt.append(obj.W[1][:, 0:X_DIM])
+    # for i in range(len(obj.m) - 1):
+    #     Temp_Wt.append(obj.W[i+2])
+    # Temp_Wt.append(obj.W[-1])
+    # obj.CheckGradients(
+    #     obj.Xtrain[0:X_DIM, 0:Y_DIM], obj.Ytrain[0:X_DIM, 0:Y_DIM], Temp_Wt, obj.b, 'slow')
 
     '''
     Coarse to fine random search for eta and lmbda:

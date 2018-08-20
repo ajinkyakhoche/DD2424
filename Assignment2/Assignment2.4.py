@@ -414,8 +414,8 @@ def main():
     '''
     #filePath = 'C:/Users/Ajinkya/Documents/Python Scripts/Deep Learing in Data Science/'
     #filePath = os.getcwd() + '\\Deep Learning in Data Science'
-    filePath = 'C:/Users/Ajinkya/Dropbox/Python Scripts/Deep Learing in Data Science'
-    #filePath = '..'
+    #filePath = 'C:/Users/Ajinkya/Dropbox/Python Scripts/Deep Learing in Data Science'
+    filePath = os.getcwd()
     '''
     h:      Step Size
     eps:    epsilon for placing in denominator of relative gradient checking
@@ -432,7 +432,7 @@ def main():
     nBatch: Batch size
     '''
     GradDescentParams = {'sigma': 0.001, 'eta': 5.58e-3,
-                         'lmbda': 6.69e-8, 'rho': 0.9, 'nEpoch': 20, 'nBatch': 100}
+                         'lmbda': 6.69e-8, 'rho': 0.9, 'nEpoch': 5, 'nBatch': 100}
 
     '''
     d:      Input image size 32x32x3
@@ -449,12 +449,12 @@ def main():
     ''' 
     Checking Gradients by comparing analytic to numerical gradient
     '''
-    X_DIM = 1000  # can change this to 100, 1000 etc
-    Temp_Wt = []
-    Temp_Wt.append(obj.W[0][:, 0:X_DIM])
-    Temp_Wt.append(obj.W[1])
-    obj.CheckGradients(
-        obj.Xtrain[0:X_DIM, 0:1], obj.Ytrain[0:X_DIM, 0:1], Temp_Wt, obj.b, 'slow')
+    # X_DIM = 1000  # can change this to 100, 1000 etc
+    # Temp_Wt = []
+    # Temp_Wt.append(obj.W[0][:, 0:X_DIM])
+    # Temp_Wt.append(obj.W[1])
+    # obj.CheckGradients(
+    #     obj.Xtrain[0:X_DIM, 0:1], obj.Ytrain[0:X_DIM, 0:1], Temp_Wt, obj.b, 'slow')
 
     '''
     Coarse to fine random search for eta and lmbda:
@@ -467,24 +467,25 @@ def main():
     - save parameter pair and corresponding accuracy in a text file
     '''
     # # Test-1
-    eta_range = [-3, -1]  # [min, max]
-    lmbda_range = [-9, -3]  # [min, max]
-    # Since input is required in log scale, hence we take exponents of 10 for range
-    # eta_range = [-2.9038, -2.1709]  # [min, max]
-    # lmbda_range = [-2.8674, -1.6672]  # [min, max]
-    no_of_epochs = 15
-    nIter = 75
-    obj.CoarseToFineRandomSearch(eta_range, lmbda_range, no_of_epochs, nIter)
+    # eta_range = [-3, -1]  # [min, max]
+    # lmbda_range = [-9, -3]  # [min, max]
+    # # Since input is required in log scale, hence we take exponents of 10 for range
+    # # eta_range = [-2.9038, -2.1709]  # [min, max]
+    # # lmbda_range = [-2.8674, -1.6672]  # [min, max]
+    # no_of_epochs = 15
+    # nIter = 75
+    # obj.CoarseToFineRandomSearch(eta_range, lmbda_range, no_of_epochs, nIter)
 
     # obj.FinalTest()
 
     '''Gradient Descent'''
-    # [Wstar, bstar] = obj.MiniBatchGD(
-    #     obj.Xtrain[:, 0:10000], obj.Ytrain[:, 0:10000], obj.Xval[:, 0:10000], obj.Yval[:, 0:10000], obj.W, obj.b, PlotLoss=True)
+    nTrainingImgs = 10000
+    [Wstar, bstar] = obj.MiniBatchGD(
+        obj.Xtrain[:, 0:nTrainingImgs], obj.Ytrain[:, 0:nTrainingImgs], obj.Xval[:, 0:nTrainingImgs], obj.Yval[:, 0:nTrainingImgs], obj.W, obj.b, PlotLoss=True)
 
-    # Compute Accuracy
-    #acc = obj.ComputeAccuracy2(obj.Xval, obj.yval, Wstar, bstar)
-    # print(acc)
+    #Compute Accuracy
+    acc = obj.ComputeAccuracy2(obj.Xval, obj.yval, Wstar, bstar)
+    print(acc)
 
 
 if __name__ == '__main__':
