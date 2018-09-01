@@ -112,36 +112,52 @@ class kLayerNN(object):
         # FUTURE: Add other initializations
 
     def BatchNormalize(self, s, mu, var):
-        A = np.linalg.inv(np.diag(var + self.epsilon))**0.5
-        B = s - mu
-        sHat = np.dot(A, B)
+        # A = np.linalg.inv(np.diag(var + self.epsilon))**0.5
+        # B = s - mu
+        # sHat = np.dot(A, B)
+        # return sHat
+        V = np.array([var + self.epsilon])
+        Vinv0_5 = V**-0.5
+        sHat = np.multiply((s-mu), Vinv0_5.T) 
         return sHat
 
-    def BatchNormBackPass(self, g, s, mu, var):
+    def BatchNormBackPass(self, dJdsHat, s, mu, var):
         '''
         Input: g (dJ/dsHat), s, mu, var
         Output: g (dJ/ds)
         Comments: Refer to last slide of Lec 4
         '''
-        N = g.shape[0]
-        Vb = np.diag(var + self.epsilon)
-        B = np.reshape(np.diag(s - mu), (-1, 1))
-        A = np.dot(g, np.linalg.inv(Vb)**1.5)
-        ## Doubt: how do we know difference b/w np.dot and np.multiply
-        dJdvar = -0.5 * np.sum(np.multiply(A, B.T), 0)
-        E = np.dot(g, np.linalg.inv(Vb)**0.5)
-        dJdmu = np.sum(-E, 0)
-        X = E
-        #Y = np.multiply(dJdvar, np.reshape(np.diag(s - mu), (-1, 1))) * 2/N
-        # Y = np.dot(np.reshape(np.diag(s-mu), (-1, 1)),
-        #            np.reshape(dJdvar, (-1, 1)).T) * 2/N
-        Y = np.multiply(np.reshape(np.diag(s-mu), (-1, 1)),
-                   np.reshape(dJdvar, (-1, 1))) * 2/N
-        # Y = np.multiply(np.diag(s-mu),
-        #            dJdvar) * 2/N
-        Z = dJdmu/N
-        g1 = X + Y.T + Z
-        return g1
+        N = dJdsHat.shape[0]
+        V = np.array([var + self.epsilon])
+        Vinv1_5 = V**-1.5
+        dJdvar = -0.5 * np.sum(np.multiply(np.multiply(dJdsHat, Vinv1_5),(s-mu).T), axis = 0)
+
+        Vinv0_5 = V**-0.5
+        dJdmu = - np.sum(np.multiply(dJdsHat, Vinv0_5), axis = 0)
+
+        dJds = np.multiply(dJdsHat, Vinv0_5) + 2/N * np.multiply(dJdvar, (s-mu).T) + dJdmu/N
+
+        return dJds      
+        # N = g.shape[0]
+        # Vb = np.diag(var + self.epsilon)
+        # B = np.reshape(np.diag(s - mu), (-1, 1))
+        # A = np.dot(g, np.linalg.inv(Vb)**1.5)
+        # ## Doubt: how do we know difference b/w np.dot and np.multiply
+        # dJdvar = -0.5 * np.sum(np.multiply(A, B.T), 0)
+        # E = np.dot(g, np.linalg.inv(Vb)**0.5)
+        # dJdmu = np.sum(-E, 0)
+        # X = E
+        # #Y = np.multiply(dJdvar, np.reshape(np.diag(s - mu), (-1, 1))) * 2/N
+        # # Y = np.dot(np.reshape(np.diag(s-mu), (-1, 1)),
+        # #            np.reshape(dJdvar, (-1, 1)).T) * 2/N
+        # Y = np.multiply(np.reshape(np.diag(s-mu), (-1, 1)),
+        #            np.reshape(dJdvar, (-1, 1))) * 2/N
+        # # Y = np.multiply(np.diag(s-mu),
+        # #            dJdvar) * 2/N
+        # Z = dJdmu/N
+        # g1 = X + Y.T + Z
+        # return g1
+
 
     def EvaluateClassifier2(self, x, Wt, bias):
         N = x.shape[1]
@@ -160,7 +176,8 @@ class kLayerNN(object):
         for i in range(self.nLayers-1):
             s.append(np.dot(Wt[i+1], h[i]) + bias[i+1])
             # calculate mu and variance
-            mu.append(np.reshape(np.sum(s[i+1], 1)/N, (-1, 1)))
+            #mu.append(np.reshape(np.sum(s[i+1], 1)/N, (-1, 1)))
+            mu.append(np.reshape(np.mean(s[i+1], axis = 1), (-1, 1)))
             # var.append(np.reshape(np.sum(((s[i+1]-mu[i+1])**2), 1)/N, (-1, 1))) #DIAG OF THIS IS SCALAR!!!
             # DIAG OF THIS IS SQUARE MATRIX!!!
             var.append(np.sum(((s[i+1]-mu[i+1])**2), 1)/N)
@@ -520,7 +537,7 @@ def main():
     Checking Gradients by comparing analytic to numerical gradient
     Change X_DIM and no. of images for training to reduce computations
     '''
-    X_DIM = 300  # can change this to 100, 1000 or obj.d (= 3072) etc
+    X_DIM = 1000  # can change this to 100, 1000 or obj.d (= 3072) etc
     Y_DIM = 100
     Temp_Wt = []
     Temp_Wt.append([])
