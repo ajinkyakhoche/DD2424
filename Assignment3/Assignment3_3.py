@@ -127,15 +127,20 @@ class kLayerNN(object):
         Vb = np.diag(var + self.epsilon)
         B = np.reshape(np.diag(s - mu), (-1, 1))
         A = np.dot(g, np.linalg.inv(Vb)**1.5)
-        dJdvar = -0.5 * np.sum(np.multiply(A, B), 0)
+        ## Doubt: how do we know difference b/w np.dot and np.multiply
+        dJdvar = -0.5 * np.sum(np.multiply(A, B.T), 0)
         E = np.dot(g, np.linalg.inv(Vb)**0.5)
         dJdmu = np.sum(-E, 0)
         X = E
         #Y = np.multiply(dJdvar, np.reshape(np.diag(s - mu), (-1, 1))) * 2/N
-        Y = np.dot(np.reshape(np.diag(s-mu), (-1, 1)),
-                   np.reshape(dJdvar, (-1, 1)).T) * 2/N
+        # Y = np.dot(np.reshape(np.diag(s-mu), (-1, 1)),
+        #            np.reshape(dJdvar, (-1, 1)).T) * 2/N
+        Y = np.multiply(np.reshape(np.diag(s-mu), (-1, 1)),
+                   np.reshape(dJdvar, (-1, 1))) * 2/N
+        # Y = np.multiply(np.diag(s-mu),
+        #            dJdvar) * 2/N
         Z = dJdmu/N
-        g1 = X + Y + Z
+        g1 = X + Y.T + Z
         return g1
 
     def EvaluateClassifier2(self, x, Wt, bias):
@@ -160,7 +165,7 @@ class kLayerNN(object):
             # DIAG OF THIS IS SQUARE MATRIX!!!
             var.append(np.sum(((s[i+1]-mu[i+1])**2), 1)/N)
             sHat.append(self.BatchNormalize(s[i+1], mu[i+1], var[i+1]))
-            h.append(np.maximum(0, s[i+1]))     ###CHANGE TO sHat
+            h.append(np.maximum(0, sHat[i+1]))     ###CHANGE TO sHat
 
         # for final layer:
         s.append(np.dot(Wt[self.nLayers],
@@ -256,6 +261,8 @@ class kLayerNN(object):
         # g = []
         # for i in range(self.nLayers + 1):
         #     g.append([])
+
+        # Backward Pass
         # gradients for last layer
         g = - (Y - p).T
         grad_b[self.nLayers] = np.sum(g.T, 1)/N
@@ -265,7 +272,7 @@ class kLayerNN(object):
         # Propogate gradient vector gi to previous layer:
         g = np.dot(g, Wt[self.nLayers])
         ### CHANGE s to sHat
-        sTemp = np.where(s[self.nLayers-1] > 0, 1, 0)
+        sTemp = np.where(sHat[self.nLayers-1] > 0, 1, 0)
         
         if g.shape[0] < self.m[self.nLayers-2]: 
             g = np.multiply(g, np.reshape(np.diag(sTemp), (-1, 1)))
@@ -274,7 +281,7 @@ class kLayerNN(object):
 
         for i in range(self.nLayers-1, 0, -1):
             ### UNCOMMENT THIS LINE LATER
-            #g = self.BatchNormBackPass(g, s[i], mu[i], var[i])
+            g = self.BatchNormBackPass(g, s[i], mu[i], var[i])
             grad_b[i] = np.sum(g.T, 1)/N
             grad_b[i] = np.reshape(grad_b[i], (-1, 1))
             grad_W[i] = (np.dot(g.T, h[i-1].T))/N + 2 * self.lmbda * Wt[i]
@@ -282,7 +289,7 @@ class kLayerNN(object):
             if i > 1:
                 g = np.dot(g, Wt[i])
                 ### CHANGE s to sHat
-                sTemp = np.where(s[i-1] > 0, 1, 0)
+                sTemp = np.where(sHat[i-1] > 0, 1, 0)
                 
                 if g.shape[0] < self.m[i-2]:
                     g = np.multiply(g, np.reshape(np.diag(sTemp), (-1,1)))
@@ -502,7 +509,7 @@ def main():
     n:      Number of input images
     m:      List of sizes of intermediate layers.
     '''
-    hiddenLayerSizeList = [50]
+    hiddenLayerSizeList = [50,30,20]
     
     NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList)}
 
@@ -513,16 +520,16 @@ def main():
     Checking Gradients by comparing analytic to numerical gradient
     Change X_DIM and no. of images for training to reduce computations
     '''
-    # X_DIM = 300  # can change this to 100, 1000 or obj.d (= 3072) etc
-    # Y_DIM = 100
-    # Temp_Wt = []
-    # Temp_Wt.append([])
-    # Temp_Wt.append(obj.W[1][:, 0:X_DIM])
-    # for i in range(len(obj.m) - 1):
-    #     Temp_Wt.append(obj.W[i+2])
-    # Temp_Wt.append(obj.W[-1])
-    # obj.CheckGradients(
-    #     obj.Xtrain[0:X_DIM, 0:Y_DIM], obj.Ytrain[0:X_DIM, 0:Y_DIM], Temp_Wt, obj.b, 'slow')
+    X_DIM = 300  # can change this to 100, 1000 or obj.d (= 3072) etc
+    Y_DIM = 100
+    Temp_Wt = []
+    Temp_Wt.append([])
+    Temp_Wt.append(obj.W[1][:, 0:X_DIM])
+    for i in range(len(obj.m) - 1):
+        Temp_Wt.append(obj.W[i+2])
+    Temp_Wt.append(obj.W[-1])
+    obj.CheckGradients(
+        obj.Xtrain[0:X_DIM, 0:Y_DIM], obj.Ytrain[0:X_DIM, 0:Y_DIM], Temp_Wt, obj.b, 'slow')
 
     '''
     Coarse to fine random search for eta and lmbda:
