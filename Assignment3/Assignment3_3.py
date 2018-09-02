@@ -19,13 +19,38 @@ import pickle
 
 class kLayerNN(object):
     def __init__(self, filePath, GradCheckParams, GradDescentParams, NNParams):
-        # Call LoadBatch function to get training, validation and test set data
-        self.Xtrain, self.Ytrain, self.ytrain = self.LoadBatch(filePath +
-                                                               '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_1')
-        self.Xval, self.Yval, self.yval = self.LoadBatch(filePath +
-                                                         '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_2')
-        self.Xtest, self.Ytest, self.ytest = self.LoadBatch(filePath +
-                                                            '/Datasets/cifar-10-python/cifar-10-batches-py/test_batch')
+        if NNParams['loadAllBatches']:
+            # Call LoadBatch function to get training, validation and test set data
+            X1, Y1, y1 = self.LoadBatch(
+                filePath + '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_1')
+            X2, Y2, y2 = self.LoadBatch(
+                filePath + '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_2')
+            X3, Y3, y3 = self.LoadBatch(
+                filePath + '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_3')
+            X4, Y4, y4 = self.LoadBatch(
+                filePath + '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_4')
+            X5, Y5, y5 = self.LoadBatch(
+                filePath + '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_5')
+            X6, Y6, y6 = self.LoadBatch(
+                filePath + '/Datasets/cifar-10-python/cifar-10-batches-py/test_batch')
+
+            self.Xtrain = np.concatenate((X1, X2, X3, X4, X5[:, 0:9000]), axis=1)
+            self.Ytrain = np.concatenate((Y1, Y2, Y3, Y4, Y5[:, 0:9000]), axis=1)
+            self.ytrain = np.concatenate((y1, y2, y3, y4, y5[0:9000]))
+            self.Xval = X5[:, 9000:10000]
+            self.Yval = Y5[:, 9000:10000]
+            self.yval = y5[9000:10000]
+            self.Xtest = X6
+            self.Ytest = Y6
+            self.ytest = y6
+        else:
+            # Call LoadBatch function to get training, validation and test set data
+            self.Xtrain, self.Ytrain, self.ytrain = self.LoadBatch(filePath +
+                                                                '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_1')
+            self.Xval, self.Yval, self.yval = self.LoadBatch(filePath +
+                                                            '/Datasets/cifar-10-python/cifar-10-batches-py/data_batch_2')
+            self.Xtest, self.Ytest, self.ytest = self.LoadBatch(filePath +
+                                                                '/Datasets/cifar-10-python/cifar-10-batches-py/test_batch')
 
         # Normalize Data by subtracting mean
         self.ZeroMean()
@@ -44,6 +69,7 @@ class kLayerNN(object):
         self.nBatch = GradDescentParams['nBatch']
         #self.BatchSize = round(self.Xtrain.shape[1]/self.nBatch)
         self.epsilon = GradDescentParams['epsilon']
+        self.alpha = GradDescentParams['alpha']
 
         # Assign all NNParams
         self.d = NNParams['d']
@@ -51,9 +77,14 @@ class kLayerNN(object):
         self.n = NNParams['n']
         self.m = NNParams['m']
         self.nLayers = len(self.m) + 1
+        self.batchNorm = NNParams['batchNorm']
 
         # Initialize Weights
         self.InitializeWeightAndBias('Gaussian')
+
+        # Initialize mu_avg and var_avg for exponential moving average
+        self.mu_avg = [np.zeros_like(self.b[i]) for i in range(1,self.nLayers)]
+        self.var_avg = [np.zeros_like(self.b[i]) for i in range(1,self.nLayers)]  
 
     def unpickle(self, file):
         '''
@@ -112,10 +143,6 @@ class kLayerNN(object):
         # FUTURE: Add other initializations
 
     def BatchNormalize(self, s, mu, var):
-        # A = np.linalg.inv(np.diag(var + self.epsilon))**0.5
-        # B = s - mu
-        # sHat = np.dot(A, B)
-        # return sHat
         V = np.array([var + self.epsilon])
         Vinv0_5 = V**-0.5
         sHat = np.multiply((s-mu), Vinv0_5.T) 
@@ -138,25 +165,6 @@ class kLayerNN(object):
         dJds = np.multiply(dJdsHat, Vinv0_5) + 2/N * np.multiply(dJdvar, (s-mu).T) + dJdmu/N
 
         return dJds      
-        # N = g.shape[0]
-        # Vb = np.diag(var + self.epsilon)
-        # B = np.reshape(np.diag(s - mu), (-1, 1))
-        # A = np.dot(g, np.linalg.inv(Vb)**1.5)
-        # ## Doubt: how do we know difference b/w np.dot and np.multiply
-        # dJdvar = -0.5 * np.sum(np.multiply(A, B.T), 0)
-        # E = np.dot(g, np.linalg.inv(Vb)**0.5)
-        # dJdmu = np.sum(-E, 0)
-        # X = E
-        # #Y = np.multiply(dJdvar, np.reshape(np.diag(s - mu), (-1, 1))) * 2/N
-        # # Y = np.dot(np.reshape(np.diag(s-mu), (-1, 1)),
-        # #            np.reshape(dJdvar, (-1, 1)).T) * 2/N
-        # Y = np.multiply(np.reshape(np.diag(s-mu), (-1, 1)),
-        #            np.reshape(dJdvar, (-1, 1))) * 2/N
-        # # Y = np.multiply(np.diag(s-mu),
-        # #            dJdvar) * 2/N
-        # Z = dJdmu/N
-        # g1 = X + Y.T + Z
-        # return g1
 
 
     def EvaluateClassifier2(self, x, Wt, bias):
@@ -173,16 +181,35 @@ class kLayerNN(object):
         h.append(x)
         s.append([])
         sHat.append([])
+    
+
         for i in range(self.nLayers-1):
             s.append(np.dot(Wt[i+1], h[i]) + bias[i+1])
             # calculate mu and variance
-            #mu.append(np.reshape(np.sum(s[i+1], 1)/N, (-1, 1)))
             mu.append(np.reshape(np.mean(s[i+1], axis = 1), (-1, 1)))
             # var.append(np.reshape(np.sum(((s[i+1]-mu[i+1])**2), 1)/N, (-1, 1))) #DIAG OF THIS IS SCALAR!!!
             # DIAG OF THIS IS SQUARE MATRIX!!!
             var.append(np.sum(((s[i+1]-mu[i+1])**2), 1)/N)
+
+            # Exponential Moving Average
+            # temp_var = 0
+            # for j in range(self.nLayers):
+            #     if self.mu_avg[j].all() == 0:
+            #         temp_var = temp_var + 1
+
+            if self.mu_avg[i].all() == 0:
+                # all elements are zero, so this is first ever evaluation step
+                self.mu_avg[i] = mu[i+1]
+                self.var_avg[i] = var[i+1]
+            else:    
+                self.mu_avg[i] = self.alpha * self.mu_avg[i] + (1 - self.alpha) * mu[i+1]
+                self.var_avg[i] = self.alpha * self.var_avg[i] + (1 - self.alpha) * var[i+1]
+
             sHat.append(self.BatchNormalize(s[i+1], mu[i+1], var[i+1]))
-            h.append(np.maximum(0, sHat[i+1]))     ###CHANGE TO sHat
+            if self.batchNorm:
+                h.append(np.maximum(0, sHat[i+1]))     ###CHANGE TO sHat
+            else:
+                h.append(np.maximum(0, s[i+1]))
 
         # for final layer:
         s.append(np.dot(Wt[self.nLayers],
@@ -224,37 +251,30 @@ class kLayerNN(object):
         for i in range(self.nLayers):
             abs_W.append(abs(np.array(grad_W[i+1]) - np.array(numgrad_W[i+1])))
             abs_b.append(abs(np.array(grad_b[i+1]) - np.array(numgrad_b[i+1])))
-        # performance1 = (abs(np.array(grad_b[0]) - np.array(numgrad_b[0])))
-        # performance2 = (abs(np.array(grad_W[0]) - np.array(numgrad_W[0])))
-        # # Layer 2
-        # performance3 = (abs(np.array(grad_b[1]) - np.array(numgrad_b[1])))
-        # performance4 = (abs(np.array(grad_W[1]) - np.array(numgrad_W[1])))
 
         '''Method 1: check if relative error is small'''
         # Layer1
         rel_W = []
         rel_b = []
-        # for i in range(self.nLayers):
-        #     rel_W.append(np.sum(abs(grad_W[i+1] - numgrad_W[i+1])) /
-        #                  max(self.eps, np.sum(abs(grad_W[i+1]) + abs(numgrad_W[i+1]))))
-        #     rel_b.append(np.sum(abs(grad_b[i+1] - numgrad_b[i+1])) /
-        #                  max(self.eps, np.sum(abs(grad_b[i+1]) + abs(numgrad_b[i+1]))))
+
         for i in range(self.nLayers):
             rel_W.append(np.divide(abs(grad_W[i+1] - numgrad_W[i+1]),
                                    max(self.eps, (abs(grad_W[i+1]) + abs(numgrad_W[i+1])).all())))
             rel_b.append(np.divide(abs(grad_b[i+1] - numgrad_b[i+1]),
                                    max(self.eps, (abs(grad_b[i+1]) + abs(numgrad_b[i+1])).all())))
+        
+        avg_abs_W = np.zeros(self.nLayers)
+        avg_abs_b = np.zeros(self.nLayers)
+        avg_rel_W = np.zeros(self.nLayers)
+        avg_rel_b = np.zeros(self.nLayers)
 
-        # performance5 = np.sum(abs(grad_b[0] - numgrad_b[0])) / \
-        #     max(self.eps, np.sum(abs(grad_b[0]) + abs(numgrad_b[0])))
-        # performance6 = np.sum(abs(grad_W[0] - numgrad_W[0])) / \
-        #     max(self.eps, np.sum(abs(grad_W[0]) + abs(numgrad_W[0])))
-        # # Layer2
-        # performance5 = np.sum(abs(grad_b[1] - numgrad_b[1])) / \
-        #     max(self.eps, np.sum(abs(grad_b[1]) + abs(numgrad_b[1])))
-        # performance6 = np.sum(abs(grad_W[1] - numgrad_W[1])) / \
-        #     max(self.eps, np.sum(abs(grad_W[1]) + abs(numgrad_W[1])))
-        return
+        for k in range(self.nLayers):
+            avg_abs_W[k] = np.mean(abs_W[k])
+            avg_abs_b[k] = np.mean(abs_b[k])
+            avg_rel_W[k] = np.mean(rel_W[k])
+            avg_rel_b[k] = np.mean(rel_b[k])
+
+        return np.mean(avg_abs_W), np.mean(avg_abs_b), np.mean(avg_rel_W), np.mean(avg_rel_b)
 
     def ComputeGradients(self, X, Y, Wt, bias):
         N = X.shape[1]
@@ -274,10 +294,6 @@ class kLayerNN(object):
 
         # Forward Pass
         p, s, sHat, h, mu, var = self.EvaluateClassifier2(X, Wt, bias)
-        # initialize a list of empty lists 'g'
-        # g = []
-        # for i in range(self.nLayers + 1):
-        #     g.append([])
 
         # Backward Pass
         # gradients for last layer
@@ -288,17 +304,35 @@ class kLayerNN(object):
             np.dot(g.T, h[self.nLayers-1].T))/N + 2 * self.lmbda * Wt[self.nLayers]
         # Propogate gradient vector gi to previous layer:
         g = np.dot(g, Wt[self.nLayers])
-        ### CHANGE s to sHat
-        sTemp = np.where(sHat[self.nLayers-1] > 0, 1, 0)
-        
+        if self.batchNorm:
+            ### CHANGE s to sHat
+            sTemp = np.where(sHat[self.nLayers-1] > 0, 1, 0)
+        else:
+            sTemp = np.where(s[self.nLayers-1] > 0, 1, 0)
+
+        '''
+        THERE IS AN ERROR IN ASSIGNMENT NOTES: ref eq 22 on page 4.
+        instead of 
+            g_i * diag(Ind(ŝ_i(k-1)> 0))
+        it was
+            g_i * Ind(ŝ_i(k-1)> 0)
+        which finally gave convergence of analytical and numerical 
+        gradients. I wasted at least 50 hours on finding out this bug!!
+        '''
+        # if g.shape[0] < self.m[self.nLayers-2]: 
+        #     g = np.multiply(g, np.reshape(np.diag(sTemp), (-1, 1)))
+        # else:
+        #     g = np.multiply(g, np.diag(sTemp))
         if g.shape[0] < self.m[self.nLayers-2]: 
             g = np.multiply(g, np.reshape(np.diag(sTemp), (-1, 1)))
         else:
-            g = np.multiply(g, np.diag(sTemp))
+            g = np.multiply(g, sTemp.T)
 
         for i in range(self.nLayers-1, 0, -1):
-            ### UNCOMMENT THIS LINE LATER
-            g = self.BatchNormBackPass(g, s[i], mu[i], var[i])
+            if self.batchNorm:
+                ### UNCOMMENT THIS LINE IF NOT BATCH NORM
+                g = self.BatchNormBackPass(g, s[i], mu[i], var[i])
+
             grad_b[i] = np.sum(g.T, 1)/N
             grad_b[i] = np.reshape(grad_b[i], (-1, 1))
             grad_W[i] = (np.dot(g.T, h[i-1].T))/N + 2 * self.lmbda * Wt[i]
@@ -306,12 +340,19 @@ class kLayerNN(object):
             if i > 1:
                 g = np.dot(g, Wt[i])
                 ### CHANGE s to sHat
-                sTemp = np.where(sHat[i-1] > 0, 1, 0)
+                if self.batchNorm:
+                    sTemp = np.where(sHat[i-1] > 0, 1, 0)
+                else:
+                    sTemp = np.where(s[i-1] > 0, 1, 0)
                 
+                # if g.shape[0] < self.m[i-2]:
+                #     g = np.multiply(g, np.reshape(np.diag(sTemp), (-1,1)))
+                # else:
+                #     g = np.multiply(g, np.diag(sTemp))
                 if g.shape[0] < self.m[i-2]:
                     g = np.multiply(g, np.reshape(np.diag(sTemp), (-1,1)))
                 else:
-                    g = np.multiply(g, np.diag(sTemp))
+                    g = np.multiply(g, sTemp.T)
 
         return grad_W, grad_b
 
@@ -360,9 +401,6 @@ class kLayerNN(object):
         return numgrad_W, numgrad_b
 
     def CheckGradients(self, X, Y, Wt, bias, mode='slow'):
-        # if Y.shape[1] == 1:
-        #     Y = np.reshape(Y, (-1, 1))
-        #     X = np.reshape(X, (-1, 1))
 
         [grad_W, grad_b] = self.ComputeGradients(X, Y, Wt, bias)
 
@@ -373,11 +411,14 @@ class kLayerNN(object):
                 X, Y, Wt, bias)
 
         # Check Performance
-        self.PerformanceEval(grad_W, grad_b, numgrad_W, numgrad_b)
+        abs_W, abs_b, rel_W, rel_b = self.PerformanceEval(grad_W, grad_b, numgrad_W, numgrad_b)
+        return abs_W, abs_b, rel_W, rel_b 
 
     def plotLoss(self, Jtrain, Jval, nEpoch):
         iterations = list(range(1, nEpoch + 1))
         plt.figure()
+        plt.xlim((0,self.nEpoch+1))
+        plt.ylim((1,2.5))
         plt.plot(iterations, Jtrain, linewidth=3, label='Training Loss')
         plt.plot(iterations, Jval, linewidth=3, label='Validation Loss')
         plt.legend(loc='upper right')
@@ -437,7 +478,7 @@ class kLayerNN(object):
         # Modify no. of epochs
         self.nEpoch = no_of_epochs
         # Create Text file to store data
-        fp = open('parameterTest1.txt', 'w')
+        fp = open('parameterTest5.txt', 'w')
         text1 = 'Coarse to Fine parameter search test 1:\neta_range: 1e'+str(eta_range[0]) + '- 1e'+str(eta_range[1])+'\nlmbda range: 1e'+str(lmbda_range[0]) + '- 1e'+str(lmbda_range[1])+'\nnEpochs = ' + \
             str(no_of_epochs) + '\nnIter: ' + str(nIter) + '\n\n'
         fp.write(text1)
@@ -455,10 +496,12 @@ class kLayerNN(object):
 
             # Gradient Descent
             [Wstar, bstar] = self.MiniBatchGD(
-                self.Xtrain, self.Ytrain, self.Xval, self.Yval, self.W, self.b)
+                self.Xtrain, self.Ytrain, self.Xval, self.Yval, self.W, self.b, False)
 
             # Compute Accuracy on Validation set
             acc = self.ComputeAccuracy2(self.Xval, self.yval, Wstar, bstar)
+            print('>>>>ETA ' + str(self.eta) + ':' +
+                  'LAMBDA: ' + str(self.lmbda) + '<<<<')
             print('>>>>ITERATION ' + str(i) + ':' +
                   'ACCURACY: ' + str(round(acc*100, 2)) + '%<<<<')
             # Write parameters to text file
@@ -492,16 +535,12 @@ class kLayerNN(object):
 
 def main():
     '''
-        - Specify path to Datasets in variable 'filePath'
-        - Specify Gradient Checking parameters in 'GradCheckParams'
-        - Specify Gradient Descent parameters in 'GradDescentParams'
-        - Specify Neural Network parameters in 'NNParams'
+    Specify path to Datasets in variable 'filePath'
     '''
-    #filePath = 'C:/Users/Ajinkya/Documents/Python Scripts/Deep Learing in Data Science/'
-    #filePath = os.getcwd() + '\\Deep Learning in Data Science'
-    #filePath = 'C:/Users/Ajinkya/Dropbox/Python Scripts/Deep Learing in Data Science'
     filePath = os.getcwd()
     '''
+    Specify Gradient Checking parameters in 'GradCheckParams'
+
     h:      Step Size
     eps:    epsilon for placing in denominator of relative gradient checking
     tol1:   Tolerance for absolute gradient checking
@@ -509,6 +548,8 @@ def main():
     GradCheckParams = {'h': 1e-6, 'eps': 1e-8, 'tol1': 1e-7}
 
     '''
+    Specify Gradient Descent parameters in 'GradDescentParams'
+
     sigma:  Variance to initialize random weights
     eta:    Learning Rate
     lmbda:  Regularization Parameter
@@ -517,66 +558,88 @@ def main():
     nBatch: Batch size
     epsilon:small number used for division in Batch Normalization function
     '''
-    GradDescentParams = {'sigma': 0.001, 'eta': 0.01,
-                         'lmbda': 0.0, 'rho': 0.9, 'nEpoch': 10, 'nBatch': 100, 'epsilon': 1e-11}
+    GradDescentParams = {'sigma': 0.001, 'eta': 0.00175115,
+                         'lmbda': 1.72844744e-09, 'rho': 0.9, 'nEpoch': 20, 'nBatch': 100, 'epsilon': 1e-11, 'alpha':0.99}
 
     '''
-    d:      Input image size 32x32x3
-    k:      Output size (=no. of classes)
-    n:      Number of input images
-    m:      List of sizes of intermediate layers.
+    Specify Neural Network parameters in 'NNParams'
+
+    d:                      Input image size 32x32x3
+    k:                      Output size (=no. of classes)
+    n:                      Number of input images
+    m:                      List of sizes of intermediate layers.
+    batchNorm:              True/False, if you want to run NN with Batch Normalization
+    loadAllBatches:         True/False, whether you want to load all training data (49000 images) 
+                            or only one batch (10000 images)
+    hiddenLayerSizeList:    specify the number of hidden layers (and with it the no. of neurons in each hidden layer)
+                            for eg. [50,30] makes a 3 layer NN with 50 and 30 neurons in 1st and 2nd layer resp.                
     '''
-    hiddenLayerSizeList = [50,30,20]
+    hiddenLayerSizeList = [50,30] 
     
-    NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList)}
+    NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList), 'batchNorm':True, 'loadAllBatches':False}
 
     ''' Initialize object '''
     obj = kLayerNN(filePath, GradCheckParams, GradDescentParams, NNParams)
 
-    ''' 
-    Checking Gradients by comparing analytic to numerical gradient
-    Change X_DIM and no. of images for training to reduce computations
     '''
-    X_DIM = 1000  # can change this to 100, 1000 or obj.d (= 3072) etc
-    Y_DIM = 100
-    Temp_Wt = []
-    Temp_Wt.append([])
-    Temp_Wt.append(obj.W[1][:, 0:X_DIM])
-    for i in range(len(obj.m) - 1):
-        Temp_Wt.append(obj.W[i+2])
-    Temp_Wt.append(obj.W[-1])
-    obj.CheckGradients(
-        obj.Xtrain[0:X_DIM, 0:Y_DIM], obj.Ytrain[0:X_DIM, 0:Y_DIM], Temp_Wt, obj.b, 'slow')
-
+    Specify mode of program:
+                - GradCheck:            True/False. Do you want to compare analytical and numerical gradients?
+                - Coarse2FineSearch:    True/False. Do you wanna carry out Coarse to Fine search for eta and 
+                                        lambda? Results stored as text files in root folder
+                - FinalTest:            True/False. Run gradient descent with chosen parameters (eta, lambda, rho, nEpoch..etc)
     '''
-    Coarse to fine random search for eta and lmbda:
-    - Come up with a coarse range for eta and lmbda
-    - generate 100 pairs of eta, lmbda and run GD with following settings:
-        - 50 epoch, all training and validation data
-    - repeat with narrower pair range and 100 epochs 
-    - repeat with narrower pair range and 150-200 epochs
-    - check accuracy on validation set.
-    - save parameter pair and corresponding accuracy in a text file
-    '''
-    # # Test-1
-    # eta_range = [-3, -2]  # [min, max]
-    # lmbda_range = [-3, -1]  # [min, max]
-    # # Since input is required in log scale, hence we take exponents of 10 for range
-    # # eta_range = [-2.9038, -2.1709]  # [min, max]
-    # # lmbda_range = [-2.8674, -1.6672]  # [min, max]
-    # no_of_epochs = 15
-    # nIter = 75
-    # obj.CoarseToFineRandomSearch(eta_range, lmbda_range, no_of_epochs, nIter)
+    ProgramMode = {'GradCheck': True, 'Coarse2FineSearch': False, 'FinalTest': False}
 
-    # obj.FinalTest()
+    if ProgramMode['GradCheck']:
+        ''' 
+        Checking Gradients by comparing analytic to numerical gradient
+        Change X_DIM and no. of images for training to reduce computations
+        '''
+        X_DIM = 300     # can change this to 100, 1000 or obj.d (= 3072) etc
+        Y_DIM = 100     # this specifies the number of images 
+        Temp_Wt = []
+        Temp_Wt.append([])
+        Temp_Wt.append(obj.W[1][:, 0:X_DIM])
+        for i in range(len(obj.m) - 1):
+            Temp_Wt.append(obj.W[i+2])
+        Temp_Wt.append(obj.W[-1])
+        abs_W, abs_b, rel_W, rel_b = obj.CheckGradients(
+            obj.Xtrain[0:X_DIM, 0:Y_DIM], obj.Ytrain[0:X_DIM, 0:Y_DIM], Temp_Wt, obj.b, 'slow')
 
-    '''Gradient Descent'''
-    [Wstar, bstar] = obj.MiniBatchGD(
-        obj.Xtrain[:, 0:10000], obj.Ytrain[:, 0:10000], obj.Xval[:, 0:10000], obj.Yval[:, 0:10000], obj.W, obj.b, PlotLoss='true')
+        print('Average absolute errors for Weights and Biases are: ' + str(abs_W) + ' and ' + str(abs_b))
+        print('Average relative errors for Weights and Biases are: ' + str(rel_W) + ' and ' + str(rel_b))
 
-    # Compute Accuracy
-    acc = obj.ComputeAccuracy2(obj.Xval, obj.yval, Wstar, bstar)
-    print(acc)
+    if ProgramMode['Coarse2FineSearch']:
+        '''
+        Coarse to fine random search for eta and lmbda:
+        - Come up with a coarse range for eta and lmbda
+        - generate 100 pairs of eta, lmbda and run GD with following settings:
+            - 50 epoch, all training and validation data
+        - repeat with narrower pair range and 100 epochs 
+        - repeat with narrower pair range and 150-200 epochs
+        - check accuracy on validation set.
+        - save parameter pair and corresponding accuracy in a text file
+        '''
+        # Test-1
+        eta_range = [-3, -1]  # [min, max]
+        lmbda_range = [-9, -2]  # [min, max]
+        # Since input is required in log scale, hence we take exponents of 10 for range
+        # eta_range = [-2.9038, -2.1709]  # [min, max]
+        # lmbda_range = [-2.8674, -1.6672]  # [min, max]
+        no_of_epochs = 15
+        nIter = 75
+        obj.CoarseToFineRandomSearch(eta_range, lmbda_range, no_of_epochs, nIter)
+
+    if ProgramMode['FinalTest']:
+        # obj.FinalTest()
+        nImages = 10000
+        '''Gradient Descent'''
+        [Wstar, bstar] = obj.MiniBatchGD(
+            obj.Xtrain[:, 0:nImages], obj.Ytrain[:, 0:nImages], obj.Xval[:, 0:nImages], obj.Yval[:, 0:nImages], obj.W, obj.b, PlotLoss='true')
+
+        # Compute Accuracy
+        acc = obj.ComputeAccuracy2(obj.Xval, obj.yval, Wstar, bstar)
+        print(acc)
 
 
 if __name__ == '__main__':
