@@ -499,7 +499,7 @@ class kLayerNN(object):
                 self.Xtrain, self.Ytrain, self.Xval, self.Yval, self.W, self.b, False)
 
             # Compute Accuracy on Validation set
-            acc = self.ComputeAccuracy2(self.Xval, self.yval, Wstar, bstar)
+            acc = self.ComputeAccuracy2(self.Xtest, self.ytest, Wstar, bstar)
             print('>>>>ETA ' + str(self.eta) + ':' +
                   'LAMBDA: ' + str(self.lmbda) + '<<<<')
             print('>>>>ITERATION ' + str(i) + ':' +
@@ -558,8 +558,8 @@ def main():
     nBatch: Batch size
     epsilon:small number used for division in Batch Normalization function
     '''
-    GradDescentParams = {'sigma': 0.001, 'eta': 0.00175115,
-                         'lmbda': 1.72844744e-09, 'rho': 0.9, 'nEpoch': 20, 'nBatch': 100, 'epsilon': 1e-11, 'alpha':0.99}
+    GradDescentParams = {'sigma': 0.001, 'eta': 0.08108861,
+                         'lmbda': 0.00019123, 'rho': 0.9, 'nEpoch': 15, 'nBatch': 100, 'epsilon': 1e-11, 'alpha':0.99}
 
     '''
     Specify Neural Network parameters in 'NNParams'
@@ -588,7 +588,7 @@ def main():
                                         lambda? Results stored as text files in root folder
                 - FinalTest:            True/False. Run gradient descent with chosen parameters (eta, lambda, rho, nEpoch..etc)
     '''
-    ProgramMode = {'GradCheck': True, 'Coarse2FineSearch': False, 'FinalTest': False}
+    ProgramMode = {'GradCheck': False, 'Coarse2FineSearch': True, 'FinalTest': False}
 
     if ProgramMode['GradCheck']:
         ''' 
@@ -638,7 +638,7 @@ def main():
             obj.Xtrain[:, 0:nImages], obj.Ytrain[:, 0:nImages], obj.Xval[:, 0:nImages], obj.Yval[:, 0:nImages], obj.W, obj.b, PlotLoss='true')
 
         # Compute Accuracy
-        acc = obj.ComputeAccuracy2(obj.Xval, obj.yval, Wstar, bstar)
+        acc = obj.ComputeAccuracy2(obj.Xtest, obj.ytest, Wstar, bstar)
         print(acc)
 
 
