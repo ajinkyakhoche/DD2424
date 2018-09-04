@@ -478,8 +478,8 @@ class kLayerNN(object):
         # Modify no. of epochs
         self.nEpoch = no_of_epochs
         # Create Text file to store data
-        fp = open('parameterTest5.txt', 'w')
-        text1 = 'Coarse to Fine parameter search test 1:\neta_range: 1e'+str(eta_range[0]) + '- 1e'+str(eta_range[1])+'\nlmbda range: 1e'+str(lmbda_range[0]) + '- 1e'+str(lmbda_range[1])+'\nnEpochs = ' + \
+        fp = open('parameterTest6.txt', 'w')
+        text1 = 'Coarse to Fine parameter search test:\neta_range: 1e'+str(eta_range[0]) + '- 1e'+str(eta_range[1])+'\nlmbda range: 1e'+str(lmbda_range[0]) + '- 1e'+str(lmbda_range[1])+'\nnEpochs = ' + \
             str(no_of_epochs) + '\nnIter: ' + str(nIter) + '\n\n'
         fp.write(text1)
         fp.write('eta\t\teta_exponent\tlmbda\t\tlmbda_exponent\tAccuracy(%)\n')
@@ -570,7 +570,7 @@ def main():
     epsilon:small number used for division in Batch Normalization function
     '''
     GradDescentParams = {'sigma': 0.001, 'eta': 9.23e-3,
-                         'lmbda': 8.09e-8, 'rho': 0.9, 'nEpoch': 30, 'nBatch': 100, 'epsilon': 1e-11, 'alpha':0.99}
+                         'lmbda': 8.09e-8, 'rho': 0.9, 'nEpoch': 15, 'nBatch': 100, 'epsilon': 1e-11, 'alpha':0.99}
 
     '''
     Specify Neural Network parameters in 'NNParams'
@@ -585,9 +585,9 @@ def main():
     hiddenLayerSizeList:    specify the number of hidden layers (and with it the no. of neurons in each hidden layer)
                             for eg. [50,30] makes a 3 layer NN with 50 and 30 neurons in 1st and 2nd layer resp.                
     '''
-    hiddenLayerSizeList = [50] 
+    hiddenLayerSizeList = [50,30] 
     
-    NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList), 'batchNorm':False, 'loadAllBatches':True}
+    NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList), 'batchNorm':True, 'loadAllBatches':False}
 
     ''' Initialize object '''
     obj = kLayerNN(filePath, GradCheckParams, GradDescentParams, NNParams)
@@ -599,7 +599,7 @@ def main():
                                         lambda? Results stored as text files in root folder
                 - FinalTest:            True/False. Run gradient descent with chosen parameters (eta, lambda, rho, nEpoch..etc)
     '''
-    ProgramMode = {'GradCheck': False, 'Coarse2FineSearch': False, 'FinalTest': True}
+    ProgramMode = {'GradCheck': False, 'Coarse2FineSearch': True, 'FinalTest': False}
 
     if ProgramMode['GradCheck']:
         ''' 
