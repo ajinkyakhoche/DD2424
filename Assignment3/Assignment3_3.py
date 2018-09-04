@@ -470,7 +470,7 @@ class kLayerNN(object):
                   str(Jtrain) + ', Validation Error = ' + str(Jval))
             JtrainList[i] = Jtrain
             JvalList[i] = Jval
-        if PlotLoss == 'true':
+        if PlotLoss == True:
             self.plotLoss(JtrainList, JvalList, self.nEpoch)
         return Wstar, bstar
 
@@ -507,30 +507,41 @@ class kLayerNN(object):
             # Write parameters to text file
             fp.write(str(self.eta) + '\t' + str(e) + '\t' +
                      str(self.lmbda) + '\t' + str(f) + '\t' + str(round(acc*100, 2)) + '\n')
+            acc = 0
+        print('The results of Coarse to Fine search can be found in :' + fp.name + ' file in root folder' )
         fp.close()
         return
 
     def FinalTest(self):
-        Xtrain_new = np.zeros((3072, 19000))
-        Ytrain_new = np.zeros((10, 19000))
-        Xval_new = np.zeros((3072, 1000))
-        Yval_new = np.zeros((10, 1000))
+        # Xtrain_new = np.zeros((3072, 19000))
+        # Ytrain_new = np.zeros((10, 19000))
+        # Xval_new = np.zeros((3072, 1000))
+        # Yval_new = np.zeros((10, 1000))
 
-        Xtrain_new[:, 0:10000] = obj.Xtrain
-        Xtrain_new[:, 10000:19000] = obj.Xval[:, 0:9000]
-        Ytrain_new[:, 0:10000] = obj.Ytrain
-        Ytrain_new[:, 10000:19000] = obj.Yval[:, 0:9000]
+        # Xtrain_new[:, 0:10000] = obj.Xtrain
+        # Xtrain_new[:, 10000:19000] = obj.Xval[:, 0:9000]
+        # Ytrain_new[:, 0:10000] = obj.Ytrain
+        # Ytrain_new[:, 10000:19000] = obj.Yval[:, 0:9000]
 
-        Xval_new = obj.Xval[:, 9000:10000]
-        Yval_new = obj.Yval[:, 9000:10000]
+        # Xval_new = obj.Xval[:, 9000:10000]
+        # Yval_new = obj.Yval[:, 9000:10000]
 
-        [Wstar, bstar] = obj.MiniBatchGD(
-            Xtrain_new, Ytrain_new, Xval_new, Yval_new, obj.W, obj.b, PlotLoss='true')
+        # [Wstar, bstar] = obj.MiniBatchGD(
+        #     Xtrain_new, Ytrain_new, Xval_new, Yval_new, obj.W, obj.b, PlotLoss='true')
 
-        # Compute Accuracy
-        yval_new = obj.yval[9000:10000]
-        acc = obj.ComputeAccuracy2(Xval_new, yval_new, Wstar, bstar)
-        print(acc)
+        # # Compute Accuracy
+        # yval_new = obj.yval[9000:10000]
+        # acc = obj.ComputeAccuracy2(Xval_new, yval_new, Wstar, bstar)
+        # print(acc)
+
+        # Gradient Descent
+        [Wstar, bstar] = self.MiniBatchGD(
+            self.Xtrain, self.Ytrain, self.Xval, self.Yval, self.W, self.b, True)
+
+        # Compute Accuracy on Validation set
+        acc = self.ComputeAccuracy2(self.Xtest, self.ytest, Wstar, bstar)
+
+        print('Accuracy obtained on test set is: ' + str(round(acc*100, 2)) + '%')
 
 
 def main():
@@ -558,8 +569,8 @@ def main():
     nBatch: Batch size
     epsilon:small number used for division in Batch Normalization function
     '''
-    GradDescentParams = {'sigma': 0.001, 'eta': 0.08108861,
-                         'lmbda': 0.00019123, 'rho': 0.9, 'nEpoch': 15, 'nBatch': 100, 'epsilon': 1e-11, 'alpha':0.99}
+    GradDescentParams = {'sigma': 0.001, 'eta': 9.23e-3,
+                         'lmbda': 8.09e-8, 'rho': 0.9, 'nEpoch': 30, 'nBatch': 100, 'epsilon': 1e-11, 'alpha':0.99}
 
     '''
     Specify Neural Network parameters in 'NNParams'
@@ -574,9 +585,9 @@ def main():
     hiddenLayerSizeList:    specify the number of hidden layers (and with it the no. of neurons in each hidden layer)
                             for eg. [50,30] makes a 3 layer NN with 50 and 30 neurons in 1st and 2nd layer resp.                
     '''
-    hiddenLayerSizeList = [50,30] 
+    hiddenLayerSizeList = [50] 
     
-    NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList), 'batchNorm':True, 'loadAllBatches':False}
+    NNParams = {'d': 3072, 'k': 10, 'n': 10000, 'm': list(hiddenLayerSizeList), 'batchNorm':False, 'loadAllBatches':True}
 
     ''' Initialize object '''
     obj = kLayerNN(filePath, GradCheckParams, GradDescentParams, NNParams)
@@ -588,7 +599,7 @@ def main():
                                         lambda? Results stored as text files in root folder
                 - FinalTest:            True/False. Run gradient descent with chosen parameters (eta, lambda, rho, nEpoch..etc)
     '''
-    ProgramMode = {'GradCheck': False, 'Coarse2FineSearch': True, 'FinalTest': False}
+    ProgramMode = {'GradCheck': False, 'Coarse2FineSearch': False, 'FinalTest': True}
 
     if ProgramMode['GradCheck']:
         ''' 
@@ -631,15 +642,16 @@ def main():
         obj.CoarseToFineRandomSearch(eta_range, lmbda_range, no_of_epochs, nIter)
 
     if ProgramMode['FinalTest']:
-        # obj.FinalTest()
-        nImages = 10000
-        '''Gradient Descent'''
-        [Wstar, bstar] = obj.MiniBatchGD(
-            obj.Xtrain[:, 0:nImages], obj.Ytrain[:, 0:nImages], obj.Xval[:, 0:nImages], obj.Yval[:, 0:nImages], obj.W, obj.b, PlotLoss='true')
+        # # obj.FinalTest()
+        # nImages = 10000
+        # '''Gradient Descent'''
+        # [Wstar, bstar] = obj.MiniBatchGD(
+        #     obj.Xtrain[:, 0:nImages], obj.Ytrain[:, 0:nImages], obj.Xval[:, 0:nImages], obj.Yval[:, 0:nImages], obj.W, obj.b, PlotLoss='true')
 
-        # Compute Accuracy
-        acc = obj.ComputeAccuracy2(obj.Xtest, obj.ytest, Wstar, bstar)
-        print(acc)
+        # # Compute Accuracy
+        # acc = obj.ComputeAccuracy2(obj.Xtest, obj.ytest, Wstar, bstar)
+        # print(acc)
+        obj.FinalTest()
 
 
 if __name__ == '__main__':
