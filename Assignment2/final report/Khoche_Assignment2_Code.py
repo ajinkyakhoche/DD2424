@@ -432,7 +432,7 @@ def main():
     nBatch: Batch size
     '''
     GradDescentParams = {'sigma': 0.001, 'eta': 5.58e-3,
-                         'lmbda': 6.69e-8, 'rho': 0.9, 'nEpoch': 50, 'nBatch': 100}
+                         'lmbda': 6.69e-8, 'rho': 0.9, 'nEpoch': 5, 'nBatch': 100}
 
     '''
     d:      Input image size 32x32x3
